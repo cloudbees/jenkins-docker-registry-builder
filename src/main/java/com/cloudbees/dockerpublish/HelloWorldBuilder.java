@@ -8,6 +8,7 @@ import hudson.model.AbstractProject;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
 import net.sf.json.JSONObject;
+import org.jcp.xml.dsig.internal.dom.Utils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.QueryParameter;
@@ -50,15 +51,38 @@ public class HelloWorldBuilder extends Builder {
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener)  {
         // This is where you 'build' the project.
         // Since this is a dummy, we just say 'hello world' and call that a build.
 
         // This also shows how you can consult the global configuration of the builder
         if (getDescriptor().getUseFrench())
             listener.getLogger().println("Bonjour, "+name+"!");
-        else
-            listener.getLogger().println("Hello, "+name+"!");
+        else {
+                //build.getWorkspace()
+                //launcher.launchChannel()
+                //launcher.launch(new Launcher.ProcStarter());
+            try {
+
+                launcher.launch()
+                .pwd(build.getWorkspace())
+                        //.writeStdin()
+                        .stdout(listener.getLogger())
+                        .stderr(listener.getLogger())
+                        .cmdAsSingleString("find . && ls").start().join();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                return false;
+            }
+
+            listener.getLogger().println("Hello66, " + name + "!");
+
+        }
+
         return true;
     }
 
@@ -126,7 +150,7 @@ public class HelloWorldBuilder extends Builder {
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "Say hello world";
+            return "Say2 hello world";
         }
 
         @Override
