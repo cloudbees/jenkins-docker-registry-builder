@@ -12,4 +12,10 @@
   <f:entry title="Name" field="name">
     <f:textbox />
   </f:entry>
+
+   <f:entry title="Push image" field="pushImage"
+        description="Push image to index on completion">
+        <f:checkbox />
+   </f:entry>
+
 </j:jelly>

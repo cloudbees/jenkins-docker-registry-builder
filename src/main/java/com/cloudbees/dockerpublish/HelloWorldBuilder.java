@@ -56,37 +56,38 @@ public class HelloWorldBuilder extends Builder {
         // Since this is a dummy, we just say 'hello world' and call that a build.
 
         // This also shows how you can consult the global configuration of the builder
-        if (getDescriptor().getUseFrench())
-            listener.getLogger().println("Bonjour, "+name+"!");
-        else {
-                //build.getWorkspace()
-                //launcher.launchChannel()
-                //launcher.launch(new Launcher.ProcStarter());
-            try {
+        //if (getDescriptor().getUseFrench())
+        //    listener.getLogger().println("Bonjour, "+name+"!");
 
-                launcher.launch()
-                .pwd(build.getWorkspace())
-                        //.writeStdin()
-                        .stdout(listener.getLogger())
-                        .stderr(listener.getLogger())
-                        .cmdAsSingleString("find . && ls").start().join();
+        try {
 
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                return false;
-            }
+            build.setDisplayName("GOOOOOB");
 
-            listener.getLogger().println("Hello66, " + name + "!");
+            launcher.launch()
+            .pwd(build.getWorkspace())
+                    //.writeStdin()
+                    .stdout(listener.getLogger())
+                    .stderr(listener.getLogger())
+                    .cmdAsSingleString("echo 42").start().join();
 
+            listener.getLogger().print(getDescriptor().getEmail());
+
+        } catch (IOException e) {
+            recordException(listener, e);
+            return false;
+        } catch (InterruptedException e) {
+            recordException(listener, e);
+            return false;
         }
+        //listener.getLogger().println("Hello67, " + name + "!");
 
         return true;
     }
 
-
+    private void recordException(BuildListener listener, Exception e) {
+        listener.error(e.getMessage());
+        e.printStackTrace(listener.getLogger());
+    }
 
 
     // Overridden for better type safety.
@@ -107,14 +108,22 @@ public class HelloWorldBuilder extends Builder {
      */
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-        /**
-         * To persist global configuration information,
-         * simply store it in a field and call save().
-         *
-         * <p>
-         * If you don't want fields to be persisted, use <tt>transient</tt>.
-         */
-        private boolean useFrench;
+
+        public String getUserName() {
+            return userName;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        private String userName;
+        private String password;
+        private String email;
 
         /**
          * In order to load the persisted global configuration, you have to 
@@ -150,29 +159,24 @@ public class HelloWorldBuilder extends Builder {
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "Say2 hello world";
+            return "Docker build and publish";
         }
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             // To persist global configuration information,
             // set that to properties and call save().
-            useFrench = formData.getBoolean("useFrench");
+            userName = formData.getString("userName");
+            password = formData.getString("password");
+            email = formData.getString("email");
+
             // ^Can also use req.bindJSON(this, formData);
             //  (easier when there are many fields; need set* methods for this, like setUseFrench)
             save();
             return super.configure(req,formData);
         }
 
-        /**
-         * This method returns true if the global configuration says we should speak French.
-         *
-         * The method name is bit awkward because global.jelly calls this method to determine
-         * the initial state of the checkbox by the naming convention.
-         */
-        public boolean getUseFrench() {
-            return useFrench;
-        }
+
     }
 }
 
