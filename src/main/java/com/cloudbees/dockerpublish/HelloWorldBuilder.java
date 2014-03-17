@@ -94,7 +94,7 @@ public class HelloWorldBuilder extends Builder {
             build.setDisplayName(build.getDisplayName() + " " + TokenMacro.expandAll(build, listener, getNameAndTag()));
 
             return
-                executeCmd(build, launcher, listener, dockerLoginCommand()) &&
+                maybeLogin(build, launcher, listener) &&
                 executeCmd(build, launcher, listener, dockerBuildCommand(build, listener)) &&
                 maybePush(build, launcher, listener);
 
@@ -109,6 +109,15 @@ public class HelloWorldBuilder extends Builder {
             return false;
         }
 
+    }
+
+    private boolean maybeLogin(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+        if (getDescriptor().getPassword() == null || getDescriptor().getPassword().isEmpty()) {
+            listener.getLogger().println("No credentials, so not logging in to the registry");
+            return true;
+        } else {
+            return executeCmd(build, launcher, listener, dockerLoginCommand());
+        }
     }
 
     private boolean maybePush(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException, MacroEvaluationException {
