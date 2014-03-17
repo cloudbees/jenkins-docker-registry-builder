@@ -1,6 +1,7 @@
 package com.cloudbees.dockerpublish;
 import hudson.Launcher;
 import hudson.Extension;
+import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
@@ -8,7 +9,8 @@ import hudson.model.AbstractProject;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
 import net.sf.json.JSONObject;
-import org.jcp.xml.dsig.internal.dom.Utils;
+import org.jenkinsci.plugins.tokenmacro.MacroEvaluationException;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.QueryParameter;
@@ -24,7 +26,7 @@ import java.io.IOException;
  * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked
  * and a new {@link HelloWorldBuilder} is created. The created
  * instance is persisted to the project configuration XML by using
- * XStream, so this allows you to use instance fields (like {@link #name})
+ * XStream, so this allows you to use instance fields )
  * to remember the configuration.
  *
  * <p>
@@ -33,44 +35,70 @@ import java.io.IOException;
  *
  * @author Kohsuke Kawaguchi
  */
-public class HelloWorldBuilder extends Builder {
 
-    private final String name;
+public class HelloWorldBuilder extends Builder {
+    private final String repoName;
+    private final boolean noCache;
+    private String repoTag;
+    private boolean skipPush = true;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public HelloWorldBuilder(String name) {
-        this.name = name;
+    public HelloWorldBuilder(String repoName, String repoTag, boolean skipPush, boolean noCache, String workspaceDir) {
+        this.repoName = repoName;
+        this.repoTag = repoTag;
+        this.skipPush = skipPush;
+        this.noCache = noCache;
     }
 
+    public String getRepoName() {return repoName; }
+    public String getRepoTag() {  return repoTag; }
+    public boolean isSkipPush() { return skipPush;}
+    public boolean isNoCache() { return noCache;}
+
+
+
+
     /**
-     * We'll use this from the <tt>config.jelly</tt>.
+     * this tag is what is used to build - but not to push to the registry.
+     * In docker - you push the whole repo to trigger the sync.
      */
-    public String getName() {
-        return name;
+    private String getNameAndTag() {
+        if (getRepoTag() == null || repoTag.trim().isEmpty()) {
+            return repoName;
+        } else {
+            return repoName + ":" + repoTag;
+        }
     }
+
+
+    private ArgumentListBuilder dockerLoginCommand() {
+        ArgumentListBuilder args = new ArgumentListBuilder();
+        args.add("docker").add("login").add("-u").add(getDescriptor().getUserName()).add("-e").add(getDescriptor().getEmail()).add("-p").addMasked(getDescriptor().getPassword());
+        return args;
+    }
+
+    private String dockerBuildCommand(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException, MacroEvaluationException {
+        String buildTag = TokenMacro.expandAll(build, listener, getNameAndTag());
+        return "docker build -q -t " + buildTag + ((isNoCache()) ? " --no-cache=true " : "")  + " .";
+    }
+
+    private String dockerPushCommand(AbstractBuild build, BuildListener listener) throws InterruptedException, MacroEvaluationException, IOException {
+        return "docker push " + TokenMacro.expandAll(build, listener, getRepoName());
+    }
+
 
     @Override
     public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener)  {
-        // This is where you 'build' the project.
-        // Since this is a dummy, we just say 'hello world' and call that a build.
-
-        // This also shows how you can consult the global configuration of the builder
-        //if (getDescriptor().getUseFrench())
-        //    listener.getLogger().println("Bonjour, "+name+"!");
-
         try {
+            build.setDisplayName(build.getDisplayName() + " " + TokenMacro.expandAll(build, listener, getNameAndTag()));
 
-            build.setDisplayName("GOOOOOB");
+            executeCmd(build, launcher, listener, dockerLoginCommand());
+            executeCmd(build, launcher, listener, dockerBuildCommand(build, listener));
 
-            launcher.launch()
-            .pwd(build.getWorkspace())
-                    //.writeStdin()
-                    .stdout(listener.getLogger())
-                    .stderr(listener.getLogger())
-                    .cmdAsSingleString("echo 42").start().join();
-
-            listener.getLogger().print(getDescriptor().getEmail());
+            if (!isSkipPush()) {
+                executeCmd(build, launcher, listener, dockerPushCommand(build, listener));
+            }
 
         } catch (IOException e) {
             recordException(listener, e);
@@ -78,11 +106,36 @@ public class HelloWorldBuilder extends Builder {
         } catch (InterruptedException e) {
             recordException(listener, e);
             return false;
+        } catch (MacroEvaluationException e) {
+            recordException(listener, e);
+            return false;
         }
         //listener.getLogger().println("Hello67, " + name + "!");
 
         return true;
     }
+
+    private int executeCmd(AbstractBuild build, Launcher launcher, BuildListener listener, ArgumentListBuilder args) throws IOException, InterruptedException {
+        return launcher.launch()
+            .envs(build.getEnvironment(listener))
+            .pwd(build.getWorkspace())
+            .stdout(listener.getLogger())
+            .stderr(listener.getLogger())
+            .cmds(args)
+            .start().join();
+    }
+
+
+    private int executeCmd(AbstractBuild build, Launcher launcher, BuildListener listener, String cmd) throws IOException, InterruptedException {
+        return launcher.launch()
+                .envs(build.getEnvironment(listener))
+                .pwd(build.getWorkspace())
+                .stdout(listener.getLogger())
+                .stderr(listener.getLogger())
+                .cmdAsSingleString(cmd)
+                .start().join();
+    }
+
 
     private void recordException(BuildListener listener, Exception e) {
         listener.error(e.getMessage());
@@ -141,7 +194,7 @@ public class HelloWorldBuilder extends Builder {
          * @return
          *      Indicates the outcome of the validation. This is sent to the browser.
          */
-        public FormValidation doCheckName(@QueryParameter String value)
+        public FormValidation doCheckRepoName(@QueryParameter String value)
                 throws IOException, ServletException {
             if (value.length() == 0)
                 return FormValidation.error("Please set a name");
