@@ -93,12 +93,10 @@ public class HelloWorldBuilder extends Builder {
         try {
             build.setDisplayName(build.getDisplayName() + " " + TokenMacro.expandAll(build, listener, getNameAndTag()));
 
-            executeCmd(build, launcher, listener, dockerLoginCommand());
-            executeCmd(build, launcher, listener, dockerBuildCommand(build, listener));
-
-            if (!isSkipPush()) {
-                executeCmd(build, launcher, listener, dockerPushCommand(build, listener));
-            }
+            return
+                executeCmd(build, launcher, listener, dockerLoginCommand()) &&
+                executeCmd(build, launcher, listener, dockerBuildCommand(build, listener)) &&
+                maybePush(build, launcher, listener);
 
         } catch (IOException e) {
             recordException(listener, e);
@@ -110,30 +108,36 @@ public class HelloWorldBuilder extends Builder {
             recordException(listener, e);
             return false;
         }
-        //listener.getLogger().println("Hello67, " + name + "!");
 
-        return true;
     }
 
-    private int executeCmd(AbstractBuild build, Launcher launcher, BuildListener listener, ArgumentListBuilder args) throws IOException, InterruptedException {
+    private boolean maybePush(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException, MacroEvaluationException {
+        if (!isSkipPush()) {
+            return executeCmd(build, launcher, listener, dockerPushCommand(build, listener));
+        } else {
+            return true;
+        }
+    }
+
+    private boolean executeCmd(AbstractBuild build, Launcher launcher, BuildListener listener, ArgumentListBuilder args) throws IOException, InterruptedException {
         return launcher.launch()
             .envs(build.getEnvironment(listener))
             .pwd(build.getWorkspace())
             .stdout(listener.getLogger())
             .stderr(listener.getLogger())
             .cmds(args)
-            .start().join();
+            .start().join() == 0;
     }
 
 
-    private int executeCmd(AbstractBuild build, Launcher launcher, BuildListener listener, String cmd) throws IOException, InterruptedException {
+    private boolean executeCmd(AbstractBuild build, Launcher launcher, BuildListener listener, String cmd) throws IOException, InterruptedException {
         return launcher.launch()
                 .envs(build.getEnvironment(listener))
                 .pwd(build.getWorkspace())
                 .stdout(listener.getLogger())
                 .stderr(listener.getLogger())
                 .cmdAsSingleString(cmd)
-                .start().join();
+                .start().join() == 0;
     }
 
 
