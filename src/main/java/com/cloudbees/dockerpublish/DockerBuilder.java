@@ -103,7 +103,7 @@ public class DockerBuilder extends Builder {
     }
 
     private boolean maybeLogin(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        if (skipPush || getDescriptor().getPassword() == null || getDescriptor().getPassword().isEmpty()) {
+        if (getDescriptor().getPassword() == null || getDescriptor().getPassword().isEmpty()) {
             listener.getLogger().println("No credentials provided, so not logging in to the registry.");
             return true;
         } else {
