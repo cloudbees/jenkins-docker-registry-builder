@@ -19,32 +19,24 @@ import javax.servlet.ServletException;
 import java.io.IOException;
 
 /**
- * Sample {@link Builder}.
+ * Plugin to build and publish docker projects to the docker registry/index.
+ * This can optionally push, and bust cache.
  *
- * <p>
- * When the user configures the project and enables this builder,
- * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked
- * and a new {@link DockerBuilder} is created. The created
- * instance is persisted to the project configuration XML by using
- * XStream, so this allows you to use instance fields )
- * to remember the configuration.
- *
- * <p>
- * When a build is performed, the {@link #perform(AbstractBuild, Launcher, BuildListener)}
- * method will be invoked. 
- *
- * @author Kohsuke Kawaguchi
+ * @author Michael Neale
  */
-
 public class DockerBuilder extends Builder {
     private final String repoName;
     private final boolean noCache;
     private String repoTag;
     private boolean skipPush = true;
 
-    // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
+    /**
+    *
+    * See <tt>src/main/resources/hudson/plugins/hello_world/DockerBuilder/config.jelly</tt>
+    * for the actual HTML fragment for the configuration screen.
+    */
     @DataBoundConstructor
-    public DockerBuilder(String repoName, String repoTag, boolean skipPush, boolean noCache, String workspaceDir) {
+    public DockerBuilder(String repoName, String repoTag, boolean skipPush, boolean noCache) {
         this.repoName = repoName;
         this.repoTag = repoTag;
         this.skipPush = skipPush;
@@ -60,7 +52,8 @@ public class DockerBuilder extends Builder {
 
 
     /**
-     * this tag is what is used to build - but not to push to the registry.
+     * This tag is what is used to build (and tag into the local clone of the repo)
+     *   but not to push to the registry.
      * In docker - you push the whole repo to trigger the sync.
      */
     private String getNameAndTag() {
@@ -72,6 +65,7 @@ public class DockerBuilder extends Builder {
     }
 
 
+    /** Mask the password. Future: use oauth token instead with Oauth sign in */
     private ArgumentListBuilder dockerLoginCommand() {
         ArgumentListBuilder args = new ArgumentListBuilder();
         args.add("docker").add("login").add("-u").add(getDescriptor().getUserName()).add("-e").add(getDescriptor().getEmail()).add("-p").addMasked(getDescriptor().getPassword());
@@ -99,21 +93,18 @@ public class DockerBuilder extends Builder {
                 maybePush(build, launcher, listener);
 
         } catch (IOException e) {
-            recordException(listener, e);
-            return false;
+            return recordException(listener, e);
         } catch (InterruptedException e) {
-            recordException(listener, e);
-            return false;
+            return recordException(listener, e);
         } catch (MacroEvaluationException e) {
-            recordException(listener, e);
-            return false;
+            return recordException(listener, e);
         }
 
     }
 
     private boolean maybeLogin(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        if (getDescriptor().getPassword() == null || getDescriptor().getPassword().isEmpty()) {
-            listener.getLogger().println("No credentials, so not logging in to the registry");
+        if (skipPush || getDescriptor().getPassword() == null || getDescriptor().getPassword().isEmpty()) {
+            listener.getLogger().println("No credentials provided, so not logging in to the registry.");
             return true;
         } else {
             return executeCmd(build, launcher, listener, dockerLoginCommand());
@@ -150,15 +141,13 @@ public class DockerBuilder extends Builder {
     }
 
 
-    private void recordException(BuildListener listener, Exception e) {
+    private boolean recordException(BuildListener listener, Exception e) {
         listener.error(e.getMessage());
         e.printStackTrace(listener.getLogger());
+        return false;
     }
 
 
-    // Overridden for better type safety.
-    // If your plugin doesn't really define any property on Descriptor,
-    // you don't have to do this.
     @Override
     public DescriptorImpl getDescriptor() {
         return (DescriptorImpl)super.getDescriptor();
@@ -169,20 +158,18 @@ public class DockerBuilder extends Builder {
      * The class is marked as public so that it can be accessed from views.
      *
      * <p>
-     * See <tt>src/main/resources/hudson/plugins/hello_world/DockerBuilder/*.jelly</tt>
-     * for the actual HTML fragment for the configuration screen.
+     * See <tt>src/main/resources/hudson/plugins/hello_world/DockerBuilder/global.jelly</tt>
+     * for the actual HTML fragment for the plugin global config screen.
      */
-    @Extension // This indicates to Jenkins that this is an implementation of an extension point.
+    @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
         public String getUserName() {
             return userName;
         }
-
         public String getPassword() {
             return password;
         }
-
         public String getEmail() {
             return email;
         }
@@ -200,12 +187,10 @@ public class DockerBuilder extends Builder {
         }
 
         /**
-         * Performs on-the-fly validation of the form field 'name'.
+         * Performs on-the-fly validation of the form field 'repoName'.
          *
          * @param value
-         *      This parameter receives the value that the user has typed.
-         * @return
-         *      Indicates the outcome of the validation. This is sent to the browser.
+         *      Name of the docker repo (eg michaelneale/foo-bar).
          */
         public FormValidation doCheckRepoName(@QueryParameter String value)
                 throws IOException, ServletException {
@@ -235,9 +220,6 @@ public class DockerBuilder extends Builder {
             userName = formData.getString("userName");
             password = formData.getString("password");
             email = formData.getString("email");
-
-            // ^Can also use req.bindJSON(this, formData);
-            //  (easier when there are many fields; need set* methods for this, like setUseFrench)
             save();
             return super.configure(req,formData);
         }
