@@ -24,7 +24,7 @@ import java.io.IOException;
  * <p>
  * When the user configures the project and enables this builder,
  * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked
- * and a new {@link HelloWorldBuilder} is created. The created
+ * and a new {@link DockerBuilder} is created. The created
  * instance is persisted to the project configuration XML by using
  * XStream, so this allows you to use instance fields )
  * to remember the configuration.
@@ -36,7 +36,7 @@ import java.io.IOException;
  * @author Kohsuke Kawaguchi
  */
 
-public class HelloWorldBuilder extends Builder {
+public class DockerBuilder extends Builder {
     private final String repoName;
     private final boolean noCache;
     private String repoTag;
@@ -44,7 +44,7 @@ public class HelloWorldBuilder extends Builder {
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public HelloWorldBuilder(String repoName, String repoTag, boolean skipPush, boolean noCache, String workspaceDir) {
+    public DockerBuilder(String repoName, String repoTag, boolean skipPush, boolean noCache, String workspaceDir) {
         this.repoName = repoName;
         this.repoTag = repoTag;
         this.skipPush = skipPush;
@@ -165,11 +165,11 @@ public class HelloWorldBuilder extends Builder {
     }
 
     /**
-     * Descriptor for {@link HelloWorldBuilder}. Used as a singleton.
+     * Descriptor for {@link DockerBuilder}. Used as a singleton.
      * The class is marked as public so that it can be accessed from views.
      *
      * <p>
-     * See <tt>src/main/resources/hudson/plugins/hello_world/HelloWorldBuilder/*.jelly</tt>
+     * See <tt>src/main/resources/hudson/plugins/hello_world/DockerBuilder/*.jelly</tt>
      * for the actual HTML fragment for the configuration screen.
      */
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
