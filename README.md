@@ -13,7 +13,7 @@ Features:
    * tag the image built - use any Jenkins env. variables.
 
 
- ## Dockerfile as buildfile
+ ## Dockerfile as build config
 
  A Dockerfile is a convenient way to express build instructions.
 
@@ -37,13 +37,12 @@ You also end up with an image (in a repository, possibly pushed to a registry) t
 Dockerfiles can also help speed up builds. If there has been no change relative to a build instruction in the Dockerfile - then a cached version of that portion of the build can be used (this is a fundamental feature of docker)
 
 
- ### Terminology
+### Terminology
 
- Docker has some confusing terminology - quick refresher:
+Docker has some confusing terminology - quick refresher:
 
  * Repository - collection of docker images and tags. You "push" a repository to a registry, and when you build an image, it gets added to a repository.
  By default this is the "latest" version (tag)
  * Registry - a place you push docker images/repos to
  * Push - deploy a docker repo (presumably with a new image) to a remote registry
  * Image - a docker image is what you build from a Dockerfile - it gets added to a repo
- *
