@@ -1,4 +1,4 @@
-# Docker regsitry build plugin for Jenkins
+# Docker registry build plugin for Jenkins
 
 [![Build Status](https://buildhive.cloudbees.com/job/cloudbees/job/jenkins-docker-registry-builder/badge/icon)](https://buildhive.cloudbees.com/job/cloudbees/job/jenkins-docker-registry-builder/)
 
